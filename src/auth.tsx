@@ -1,0 +1,7 @@
+import {createContext,useContext,useEffect,useState, type ReactNode} from 'react'; import type {Session} from '@supabase/supabase-js'; import {supabase,configured} from './lib/supabase'; import type {Profile} from './types';
+type AuthValue={session:Session|null;profile:Profile|null;loading:boolean;refreshProfile:()=>Promise<void>}; const C=createContext<AuthValue>({session:null,profile:null,loading:true,refreshProfile:async()=>{}}); export const useAuth=()=>useContext(C);
+export function AuthProvider({children}:{children:ReactNode}){const [session,setSession]=useState<Session|null>(null);const [profile,setProfile]=useState<Profile|null>(null);const [loading,setLoading]=useState(true);
+const refreshProfile=async()=>{if(!supabase){setLoading(false);return;}const {data:{session:s}}=await supabase.auth.getSession();setSession(s);if(s){const {data}=await supabase.from('profiles').select('user_id,full_name,role').eq('user_id',s.user.id).maybeSingle();setProfile(data as Profile|null);}else setProfile(null);setLoading(false);};
+useEffect(()=>{if(!configured){setLoading(false);return;}void refreshProfile();const {data:{subscription}}=supabase!.auth.onAuthStateChange((_e,s)=>{setSession(s);window.setTimeout(()=>void refreshProfile(),0);});return()=>subscription.unsubscribe();},[]);
+return <C.Provider value={{session,profile,loading,refreshProfile}}>{children}</C.Provider>;
+}
